@@ -36,7 +36,7 @@
         // Listen for incoming messages
         channel.on('new_msg', (payload) => {
             console.log("payload=>",payload)
-            messages = [...messages, payload.text];
+            messages = [...messages, { user: payload.user, text: payload.text }];
         });
 
         // Listen for presence state and diffs
@@ -97,7 +97,7 @@
 
     <ul>
         {#each messages as msg}
-            <li>{msg}</li>
+            <li><b>{msg.user}:</b>{msg.text}</li>
         {/each}
     </ul>
 </main>
