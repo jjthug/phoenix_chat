@@ -2,24 +2,33 @@ defmodule ChatAppWeb.ChatLive do
   use ChatAppWeb, :live_view
   alias ChatApp.Messages
   alias ChatAppWeb.Endpoint
-
+  alias ChatAppWeb.Presence
   def mount(%{"room_id" => room_id}, _session, socket) do
     topic = "room:#{room_id}"
+    user= MnemonicSlugs.generate_slug(2)
+    online_users=
+
     if connected?(socket) do
       Endpoint.subscribe(topic)
+      Presence.track(self(), topic, user, %{} )
     end
 
-    user= MnemonicSlugs.generate_slug(2)
+    online_users=
+      topic
+      |> Presence.list()
+      |> Map.keys()
+      |> IO.inspect(label: "online_users")
+
     # messages=["A chat message", "a second message", "a third message"]
     messages=[Messages.insert_message("#{user} joined the chat", "system")]
-    {:ok, assign(socket, room: room_id, user: user, topic: topic, messages: messages), temporary_assigns: [messages: []]}
+    {:ok, assign(socket, room: room_id, user: user, topic: topic, online_users: online_users, messages: messages), temporary_assigns: [messages: []]}
   end
 
   def render(assigns) do
     ~H"""
-    <div>
       <h2> you are chatting in <code class="bg-slate-200 p-2"> <%= @room %></code> as <code class="bg-slate-200 p-2"><%= @user %> </code></h2>
-
+    <div class="flex space-x-2">
+      <div class="w-2/3">
       <div class="mt-4 border-2 p-4" phx-update="append" id="message list">
         <%!-- <%= for message <- @messages do %>
           <div> <%= message %></div>
@@ -33,6 +42,14 @@ defmodule ChatAppWeb.ChatLive do
       <.simple_form :let={f} for={%{}} as={:message} phx-submit="save_message">
         <.input field={{f, :text}} name="chatmsg" value="" placeholder="Enter chat message" />
       </.simple_form>
+      </div>
+
+      <div>
+       <h2> Currently connected </h2>
+       <ul>
+        <li :for={user <- @online_users} id={"online_user-#{user}"} class="text-xs"> <%= user %> </li>
+       </ul>
+      </div>
     </div>
     """
   end
@@ -57,6 +74,13 @@ defmodule ChatAppWeb.ChatLive do
 
     messages = [new_message]
     {:noreply,assign(socket, messages: messages)}
+  end
+
+  def handle_info(%{event: "presence_diff", payload: payload},socket) do
+    IO.inspect(payload, label: "payload")
+    online_users = Presence.list(socket.assigns.topic)
+    |> Map.keys()
+    {:noreply,assign(socket, online_users: online_users)}
   end
 
   def handle_info(%{event: "new_message", payload: message}, socket) do
