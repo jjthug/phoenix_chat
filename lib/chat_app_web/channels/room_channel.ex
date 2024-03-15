@@ -9,7 +9,6 @@ defmodule ChatAppWeb.RoomChannel do
 
   def handle_in("new_msg", %{"chatmsg" =>text}, socket) do
     new_message = Messages.insert_message(text, socket.assigns.user_id)
-    IO.inspect(new_message)
     IO.puts("topic=>#{socket.assigns.topic}")
     IO.puts("text=>#{text}")
 
