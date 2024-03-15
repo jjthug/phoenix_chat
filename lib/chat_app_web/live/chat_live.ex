@@ -6,7 +6,6 @@ defmodule ChatAppWeb.ChatLive do
   def mount(%{"room_id" => room_id}, _session, socket) do
     topic = "room:#{room_id}"
     user= MnemonicSlugs.generate_slug(2)
-    online_users=
 
     if connected?(socket) do
       Endpoint.subscribe(topic)
