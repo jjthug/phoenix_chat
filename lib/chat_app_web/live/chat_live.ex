@@ -18,9 +18,8 @@ defmodule ChatAppWeb.ChatLive do
       |> Map.keys()
       |> IO.inspect(label: "online_users")
 
-    # messages=["A chat message", "a second message", "a third message"]
-    messages=[Messages.insert_message("#{user} joined the chat", "system")]
-    {:ok, assign(socket, room: room_id, user: user, topic: topic, online_users: online_users, messages: messages), temporary_assigns: [messages: []]}
+    # messages=[Messages.insert_message("#{user} joined the chat", "system")]
+    {:ok, assign(socket, room: room_id, user: user, topic: topic, online_users: online_users, messages: []), temporary_assigns: [messages: []]}
   end
 
   def render(assigns) do
@@ -75,11 +74,24 @@ defmodule ChatAppWeb.ChatLive do
     {:noreply,assign(socket, messages: messages)}
   end
 
-  def handle_info(%{event: "presence_diff", payload: payload},socket) do
-    IO.inspect(payload, label: "payload")
-    online_users = Presence.list(socket.assigns.topic)
-    |> Map.keys()
-    {:noreply,assign(socket, online_users: online_users)}
+  def handle_info(%{event: "presence_diff", payload: %{joins: joins, leaves: leaves}},socket) do
+    # IO.inspect(payload, label: "payload")
+    join_messages =
+      joins
+      |> Map.keys()
+      |> Enum.map(fn user -> Messages.insert_message("#{user} joined", "system") end)
+
+    leave_messages =
+      leaves
+      |> Map.keys()
+      |> Enum.map(fn user -> Messages.insert_message("#{user} left", "system") end)
+
+    online_users =
+      socket.assigns.topic
+      |> Presence.list()
+      |> Map.keys()
+
+    {:noreply,assign(socket, messages: join_messages ++ leave_messages, online_users: online_users)}
   end
 
   def handle_info(%{event: "new_message", payload: message}, socket) do

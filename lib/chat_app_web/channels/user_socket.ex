@@ -7,7 +7,8 @@ defmodule ChatAppWeb.UserSocket do
   # Optional: Customize the socket's behavior
   def connect(%{"room_id" => room_id, "user_id" => user_id}, socket, _connect_info) do
     topic = room_id
-    {:ok, assign(socket, room_id: room_id, topic: topic, user_id: user_id)}
+    nanos=System.system_time(:nanosecond)
+    {:ok, assign(socket, room_id: room_id, topic: topic, user_id: "#{user_id}//#{nanos}")}
   end
 
   def id(_socket), do: nil
