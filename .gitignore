@@ -35,3 +35,4 @@ chat_app-*.tar
 npm-debug.log
 /assets/node_modules/
 
+.idea
