@@ -8,6 +8,7 @@
     let message = '';
     let messages = [];
     let users = [];
+    let userSet = new Set();
     let userId;
     let roomId;
     let isInit = false;
@@ -18,6 +19,10 @@
         console.log("roomId =>",roomId)
 
         userId = $page.url.searchParams.get('userId');
+
+        function toUser(user){
+            return String(user).split("//")[0];
+        }
 
         // Replace 'ws://localhost:4000/socket' with your actual WebSocket endpoint
         socket = new Socket('ws://localhost:4000/socket',{params: {user_id: userId, room_id: roomId}});
@@ -36,14 +41,16 @@
         // Listen for incoming messages
         channel.on('new_msg', (payload) => {
             console.log("payload=>",payload)
-            messages = [...messages, { user: payload.user, text: payload.text }];
+            messages = [...messages, { user: toUser(payload.user), text: payload.text }];
         });
 
         // Listen for presence state and diffs
         channel.on("presence_state", state => {
             if (!isInit) {
                 let allUsers = Object.keys(state)
-                users = [...new Set([...users, ...allUsers])];
+                users=[...new Set([...users, ...allUsers])];
+                let usersUniq = users.map(usr=>usr.split("//")[0])
+                userSet = new Set(usersUniq);
                 isInit = true;
                 console.log("presence state:", state);
             }
@@ -55,10 +62,14 @@
                     let usersToRemove = Object.keys(diff.leaves)
                     console.log("usersToRemove =>", usersToRemove)
                     users = users.filter(user => !usersToRemove.includes(user));
+                    let usersUniq = users.map(usr=>usr.split("//")[0])
+                    userSet=new Set(usersUniq);
                 }
                 if (Object.keys(diff.joins).length > 0) {
                     let newUsers = Object.keys(diff.joins)
                     users = [...new Set([...users, ...newUsers])];
+                    let usersUniq = users.map(usr=>usr.split("//")[0])
+                    userSet=new Set(usersUniq);
                 }
                 console.log("presence diff:", diff);
             }
@@ -74,6 +85,7 @@
             message = '';
         }
     }
+
 </script>
 
 <main>
@@ -81,7 +93,7 @@
     <br>
     <h2>Online users</h2>
     <ul>
-        {#each users as user}
+        {#each userSet as user}
             <li>{user}</li>
         {/each}
     </ul>
