@@ -15,15 +15,22 @@ defmodule ChatAppWeb.RoomChannel do
     {:noreply, socket}
   end
 
-  def handle_info(:after_join, socket) do
-    {:ok, _} = Presence.track(socket, socket.assigns.user_id, %{})
-
-    push(socket, "presence_state", Presence.list(socket))
+  def handle_in("change_msg", %{"chatmsg" => ""}, socket) do
+    IO.puts("updating presence typing to false")
+    Presence.update(socket, socket.assigns.user_id, %{typing: false})
     {:noreply, socket}
   end
 
-  def handle_info("presence_diff", socket) do
-    IO.puts("presence_diff called internally")
+  def handle_in("change_msg", %{"chatmsg" => _text}, socket) do
+    IO.puts("updating presence typing to true")
+    Presence.update(socket, socket.assigns.user_id, %{typing: true})
+    {:noreply, socket}
+  end
+
+  def handle_info(:after_join, socket) do
+    {:ok, _} = Presence.track(socket, socket.assigns.user_id, %{isTyping: false})
+
+    push(socket, "presence_state", Presence.list(socket))
     {:noreply, socket}
   end
 
