@@ -22,6 +22,11 @@ defmodule ChatAppWeb.RoomChannel do
     {:noreply, socket}
   end
 
+  def handle_info("presence_diff", socket) do
+    IO.puts("presence_diff called internally")
+    {:noreply, socket}
+  end
+
   def assert_joined!(_roomid) do
     :ok
   end

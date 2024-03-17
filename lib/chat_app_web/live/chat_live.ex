@@ -9,7 +9,7 @@ defmodule ChatAppWeb.ChatLive do
 
     if connected?(socket) do
       Endpoint.subscribe(topic)
-      Presence.track(self(), topic, user, %{} )
+      Presence.track(self(), topic, user, %{typing: false} )
     end
 
     online_users=
@@ -19,7 +19,8 @@ defmodule ChatAppWeb.ChatLive do
       |> IO.inspect(label: "online_users")
 
     # messages=[Messages.insert_message("#{user} joined the chat", "system")]
-    {:ok, assign(socket, room: room_id, user: user, topic: topic, online_users: online_users, messages: []), temporary_assigns: [messages: []]}
+    {:ok, assign(socket, room: room_id, user: user, topic: topic, online_users: online_users, typing_users: [],
+    messages: [Messages.insert_message("#{user} joined", "system")]), temporary_assigns: [messages: []]}
   end
 
   def render(assigns) do
@@ -37,9 +38,10 @@ defmodule ChatAppWeb.ChatLive do
         </div>
       </div>
 
-      <.simple_form :let={f} for={%{}} as={:message} phx-submit="save_message">
+      <.simple_form :let={f} for={%{}} as={:message} phx-submit="save_message" phx-change="change_message">
         <.input field={{f, :text}} name="chatmsg" value="" placeholder="Enter chat message" />
       </.simple_form>
+      <.typing_users_message users={@typing_users}/>
       </div>
 
       <div>
@@ -63,35 +65,66 @@ defmodule ChatAppWeb.ChatLive do
     <span class="font-bold"><%= @message.user %></span> : <%= @message.text %>
     """
   end
+  def typing_users_message(%{users: []} = assigns) do
+    ~H"""
+    <div></div>
+    """
+  end
+
+  def typing_users_message(%{users: users} = assigns) do
+    ~H"""
+    <div><%= Enum.join(users,", ") %> is typing</div>
+    """
+  end
 
 
   def handle_event("save_message",%{"chatmsg" =>text}, socket) do
     new_message = Messages.insert_message(text, socket.assigns.user)
 
+    Presence.update(self(), socket.assigns.topic, socket.assigns.user, %{typing: false})
     Endpoint.broadcast(socket.assigns.topic, "new_message", new_message)
 
     messages = [new_message]
     {:noreply,assign(socket, messages: messages)}
   end
 
-  def handle_info(%{event: "presence_diff", payload: %{joins: joins, leaves: leaves}},socket) do
-    # IO.inspect(payload, label: "payload")
+  def handle_event("change_message", %{"chatmsg" => ""}, socket) do
+    Presence.update(self(), socket.assigns.topic, socket.assigns.user, %{typing: false})
+    {:noreply,socket}
+  end
+
+  def handle_event("change_message", %{"chatmsg" => _text}, socket) do
+    Presence.update(self(), socket.assigns.topic, socket.assigns.user, %{typing: true})
+    {:noreply,socket}
+  end
+
+  def handle_info(%{event: "presence_diff", payload: %{joins: _joins, leaves: _leaves}}, socket) do
+
+    orig_online_user=socket.assigns.online_users
+    current_online_users=socket.assigns.topic
+    |> Presence.list()
+
+    current_typing_usernames=current_online_users
+    |> Enum.filter(fn {_username, %{metas: [%{typing: typing}]}} -> typing end)
+    |> Enum.into(%{})
+    |> Map.keys()
+
+    current_online_usernames=Map.keys(current_online_users)
+
+    leaves_users = orig_online_user -- current_online_usernames
+    joins_users = current_online_usernames -- orig_online_user
+
     join_messages =
-      joins
-      |> Map.keys()
+      joins_users
       |> Enum.map(fn user -> Messages.insert_message("#{user} joined", "system") end)
 
     leave_messages =
-      leaves
-      |> Map.keys()
+      leaves_users
       |> Enum.map(fn user -> Messages.insert_message("#{user} left", "system") end)
 
-    online_users =
-      socket.assigns.topic
-      |> Presence.list()
-      |> Map.keys()
-
-    {:noreply,assign(socket, messages: join_messages ++ leave_messages, online_users: online_users)}
+    {:noreply,assign(socket, messages: join_messages ++ leave_messages,
+     online_users: current_online_usernames,
+     typing_users: current_typing_usernames)}
   end
 
   def handle_info(%{event: "new_message", payload: message}, socket) do
