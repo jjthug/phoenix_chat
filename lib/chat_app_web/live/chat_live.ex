@@ -18,9 +18,15 @@ defmodule ChatAppWeb.ChatLive do
       |> Map.keys()
       |> IO.inspect(label: "online_users")
 
+    messages= ChatApp.Messages.list_messages(room_id)
+      |>IO.inspect(label: "messages from db")
+
+    {:ok, new_message} = Messages.create_message(%{text: "#{user} joined", username: "system", room: room_id})
+
+
     # messages=[Messages.insert_message("#{user} joined the chat", "system")]
     {:ok, assign(socket, room: room_id, user: user, topic: topic, online_users: online_users, typing_users: [],
-    messages: [Messages.insert_message("#{user} joined", "system")]), temporary_assigns: [messages: []]}
+    messages: messages ++ [new_message]), temporary_assigns: [messages: []]}
   end
 
   def render(assigns) do
@@ -62,7 +68,7 @@ defmodule ChatAppWeb.ChatLive do
 
   def message_line(assigns) do
     ~H"""
-    <span class="font-bold"><%= @message.user %></span> : <%= @message.text %>
+    <span class="font-bold"><%= @message.username %></span> : <%= @message.text %>
     """
   end
   def typing_users_message(%{users: []} = assigns) do
@@ -79,7 +85,7 @@ defmodule ChatAppWeb.ChatLive do
 
 
   def handle_event("save_message",%{"chatmsg" =>text}, socket) do
-    new_message = Messages.insert_message(text, socket.assigns.user)
+    {:ok, new_message} = Messages.create_message(%{text: text, username: socket.assigns.user, room: socket.assigns.room})
 
     Presence.update(self(), socket.assigns.topic, socket.assigns.user, %{typing: false})
     Endpoint.broadcast(socket.assigns.topic, "new_message", new_message)
