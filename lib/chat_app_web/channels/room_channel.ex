@@ -10,7 +10,7 @@ defmodule ChatAppWeb.RoomChannel do
   end
 
   def handle_in("new_msg", %{"chatmsg" =>text}, socket) do
-    new_message = Messages.insert_message(text, socket.assigns.user_id)
+    {:ok, new_message} = Messages.create_message(%{text: text, username: socket.assigns.user_id, room: socket.assigns.room_id})
     broadcast!(socket, "new_msg", new_message)
     {:noreply, socket}
   end
