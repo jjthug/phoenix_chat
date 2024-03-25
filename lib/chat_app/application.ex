@@ -7,10 +7,22 @@ defmodule ChatApp.Application do
 
   @impl true
   def start(_type, _args) do
+    topologies= [
+      your_app: [
+        strategy: Elixir.Cluster.Strategy.Kubernetes.DNS,
+        config: [
+          service: "trovi-chat-headless",
+          # The one as seen in node name yourapp@
+          application_name: "chat_app",
+          polling_interval: 5_000
+        ]
+      ]
+    ]
     children = [
+      {Cluster.Supervisor, [topologies, [name: TestNoEcto.ClusterSupervisor]]},
       ChatAppWeb.Telemetry,
       ChatApp.Repo,
-      {DNSCluster, query: Application.get_env(:chat_app, :dns_cluster_query) || :ignore},
+      # {DNSCluster, query: Application.get_env(:chat_app, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: ChatApp.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: ChatApp.Finch},
